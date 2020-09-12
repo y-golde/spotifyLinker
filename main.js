@@ -67,7 +67,7 @@ function getGenreMatchScore(targetGenre, compareGenre) {
     if (compareGenre) {
         for (const genre of compareGenre) {
             if (targetGenre.includes(genre)) {
-                matchScore = matchScore + 0.5;
+                matchScore = matchScore + 1 / targetGenre.length;
             }
         }
     }
@@ -189,7 +189,7 @@ let relatedCache = [];
 let finalStackTrace = [];
 
 //artists ids
-const fromArtist = "4gzpq5DPGxSnKTe4SA8HAU";
-const toArtist = "6XYvaoDGE0VmRt83Jss9Sn";
+const fromArtist = "5K4W6rqBFWDnAN6FQUkS6x";
+const toArtist = "1EpyA68dKpjf7jXmQL88Hy";
 //call get path algrithm
 getArtsitsPath(fromArtist, toArtist);
