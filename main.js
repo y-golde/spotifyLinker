@@ -132,7 +132,7 @@ function getRelatedArtists(depth, artistId, toId, from, toGenres) {
         } else {
             console.log("FOUND EM BOI , it's : " + toId);
             getArtistBackTrack(fromArtist, toId);
-            console.log(finalStackTrace);
+            getFullArtists(finalStackTrace);
             return;
         }
     });
@@ -182,6 +182,33 @@ function getArtistBackTrack(toId, fromId) {
     finalStackTrace.push(fromId);
 }
 
+//print get the full stack of artists
+function getFullArtists(arr) {
+    let arr2 = [];
+    let index = 0;
+    arr.forEach((artist, i) => {
+        var options = {
+            url: `https://api.spotify.com/v1/artists/${artist}`,
+            headers: {
+                Authorization: "Bearer " + authtoken,
+            },
+            json: true,
+        };
+        request.get(options, function (error, response, body) {
+            index++;
+            arr2[i] = { name: body.name, genres: body.genres };
+            checkDone(arr.length, index, arr2);
+        });
+    });
+}
+
+function checkDone(len, i, arr) {
+    if (len == i) {
+        //this is were you'd send the client the full stack of artists to display
+        console.log(arr);
+    }
+}
+
 //relatedCache stores all of the artist's {depth - id - from}
 let relatedCache = [];
 
@@ -189,7 +216,8 @@ let relatedCache = [];
 let finalStackTrace = [];
 
 //artists ids
-const fromArtist = "5K4W6rqBFWDnAN6FQUkS6x";
-const toArtist = "1EpyA68dKpjf7jXmQL88Hy";
+const fromArtist = "66CXWjxzNUsdJxJ2JdwvnR";
+const toArtist = "53XhwfbYqKCa1cC15pYq2q";
+
 //call get path algrithm
 getArtsitsPath(fromArtist, toArtist);
