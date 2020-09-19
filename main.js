@@ -168,6 +168,10 @@ function getRelatedArtists(
         json: true,
     };
     request.get(options, function (error, response, body) {
+	    if(error){
+		    console.log(error);
+		    console.log(body);
+	    }
         for (let i = 0; i < body.artists.length; i++) {
             if (
                 !relatedCache
@@ -301,7 +305,7 @@ function getArtistFullDetails(artistId, socket) {
         json: true,
     };
     request.get(options, function (error, response, body) {
-        const images = body.images[0];
+        const images = body.images[0] ? body.images[0] : {};
         socket.emit("currentlyLoading", body.name, images);
     });
 }
