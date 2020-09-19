@@ -156,7 +156,7 @@ function getRelatedArtists(
     index
 ) {
     disableArtist(artistId, relatedCache);
-    if (index % 5 == 0) {
+    if (index % 15 == 0) {
         getArtistFullDetails(artistId, socket);
     }
     //console.log("Trying : " + artistId + " Depth : " + depth);
@@ -243,6 +243,7 @@ function getLowestPathArtist(relatedCache) {
         }
     });
     if (!lowestId) {
+        socket.emit("giveUp");
         console.log("I give up!");
         return "NA";
     }
@@ -323,4 +324,7 @@ function checkDone(len, i, arr, socket) {
 //call get path algrithm
 //getArtsitsPath(fromArtist, toArtist);
 
-authorize();
+//added auto authorize when the token is expired
+setTimeout(() => {
+    authorize();
+}, 36000);
