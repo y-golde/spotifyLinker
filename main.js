@@ -203,7 +203,7 @@ function getRelatedArtists(
                 }
             }
         //TODO : per-sort the array
-        var curLowestArtist = getLowestPathArtist(relatedCache);
+        var curLowestArtist = getLowestPathArtist(relatedCache , socket);
         if (curLowestArtist == "NA") {
             return;
         }
@@ -243,7 +243,7 @@ function getRelatedArtists(
 }
 
 //this function gets the artist with the lowest depth score
-function getLowestPathArtist(relatedCache) {
+function getLowestPathArtist(relatedCache , socket) {
     let lowestId;
     //if path is larger than 4 give up (20^4 is alot(blaze it))
     let lowestVal = 4;
