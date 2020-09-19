@@ -168,24 +168,28 @@ function getRelatedArtists(
         json: true,
     };
     request.get(options, function (error, response, body) {
-	    if(error){
-		    console.log(error);
-		    console.log(body);
-	    }
-        for (let i = 0; i < body.artists.length; i++) {
-            if (
-                !relatedCache
-                    .map((artist) => artist.id)
-                    .includes(body.artists[i].id)
-            ) {
-                relatedCache.push({
-                    id: body.artists[i].id,
-                    from: from,
-                    depth:
-                        depth +
-                        1 -
-                        getGenreMatchScore(toGenres, body.artists[i].genres),
-                });
+        if (!body.artists.length) {
+            console.log(error);
+            console.log(body);
+        } else {
+            for (let i = 0; i < body.artists.length; i++) {
+                if (
+                    !relatedCache
+                        .map((artist) => artist.id)
+                        .includes(body.artists[i].id)
+                ) {
+                    relatedCache.push({
+                        id: body.artists[i].id,
+                        from: from,
+                        depth:
+                            depth +
+                            1 -
+                            getGenreMatchScore(
+                                toGenres,
+                                body.artists[i].genres
+                            ),
+                    });
+                }
             }
         }
         //TODO : per-sort the array
