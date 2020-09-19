@@ -168,9 +168,20 @@ function getRelatedArtists(
         json: true,
     };
     request.get(options, function (error, response, body) {
-        if (!body.artists.length) {
-            console.log(error);
-            console.log(body);
+        if (body.error) {
+            const tryAfter = response.headers['retry-after'];
+		console.log(`got try after , waiting ${tryAfter} sec`);
+	    setTimeout(() => {getRelatedArtists(
+		        depth,
+		        artistId,
+		        toId,
+		        from,
+		        toGenres,
+		        socket,
+		        relatedCache,
+		        ogFrom,
+		        index
+	    )} , tryAfter * 1000);
         } else {
             for (let i = 0; i < body.artists.length; i++) {
                 if (
@@ -191,7 +202,6 @@ function getRelatedArtists(
                     });
                 }
             }
-        }
         //TODO : per-sort the array
         var curLowestArtist = getLowestPathArtist(relatedCache);
         if (curLowestArtist == "NA") {
@@ -228,6 +238,7 @@ function getRelatedArtists(
             getFullArtists(finalStackTrace, socket);
             return;
         }
+	}
     });
 }
 
@@ -310,7 +321,7 @@ function getArtistFullDetails(artistId, socket) {
         json: true,
     };
     request.get(options, function (error, response, body) {
-        const images = body.images[0] ? body.images[0] : {};
+        const images = body.images ? body.images[0] : {};
         socket.emit("currentlyLoading", body.name, images);
     });
 }
