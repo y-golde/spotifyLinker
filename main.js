@@ -359,8 +359,8 @@ function continueFullArtists(
 //this function gets the artist with the lowest depth score
 function getLowestPathArtist(relatedCache, socket) {
     let lowestId;
-    //if path is larger than 4 give up (20^4 is alot(blaze it))
-    let lowestVal = 4;
+    //if path is larger than 6 give up (20^6 is alot)
+    let lowestVal = 6;
 
     relatedCache.forEach((artist) => {
         if (artist.depth < lowestVal) {
