@@ -202,7 +202,7 @@ function getRelatedArtists(
 ) {
     disableArtist(artistId, relatedCache);
     if (index % 25 == 0) {
-        getArtistFullDetails(artistId, socket);
+        getArtistFullDetails(artistId, socket, depth);
     }
     //checks to see if artist in cache already
     getArtistFromDB(artistId, function (row) {
@@ -446,10 +446,10 @@ function getFullArtists(arr, socket) {
     });
 }
 
-function getArtistFullDetails(artistId, socket) {
+function getArtistFullDetails(artistId, socket, depth) {
     getArtistFromDB(artistId, function (row) {
         const images = row.images ? body.images[0] : {};
-        socket.emit("currentlyLoading", row.name, images);
+        socket.emit("currentlyLoading", row.name, images, depth);
     });
 }
 
