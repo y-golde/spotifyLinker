@@ -270,7 +270,12 @@ function getRelatedArtists(
                     updateRelated(artistId, idMap.join());
                     for (let i = 0; i < body.artists.length; i++) {
                         const artist = body.artists[i];
-                        const img = artist.images ? artist.images[0] : "";
+
+                        let img = artist.images ? artist.images : "";
+                        //get your shit together spotify , inconsistent af...
+                        if (img != "") {
+                            img = img[0] ? img[0].url : img.url;
+                        }
                         insertArtistIntoDB(
                             artist.id,
                             artist.name,
@@ -448,7 +453,7 @@ function getFullArtists(arr, socket) {
 
 function getArtistFullDetails(artistId, socket, depth) {
     getArtistFromDB(artistId, function (row) {
-        const images = row.images ? row.images[0] : {};
+        const images = row.img ? row.img : {};
         socket.emit("currentlyLoading", row.name, images, depth);
     });
 }
