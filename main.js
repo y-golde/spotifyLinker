@@ -448,7 +448,7 @@ function getFullArtists(arr, socket) {
 
 function getArtistFullDetails(artistId, socket, depth) {
     getArtistFromDB(artistId, function (row) {
-        const images = row.images ? body.images[0] : {};
+        const images = row.images ? row.images[0] : {};
         socket.emit("currentlyLoading", row.name, images, depth);
     });
 }
