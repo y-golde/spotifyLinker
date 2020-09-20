@@ -1,6 +1,22 @@
 let request = require("request"); // "Request" library
+
 const { response } = require("express");
+const e = require("express");
+
+var sqlite3 = require("sqlite3").verbose();
+var db = new sqlite3.Database("database.db");
+
 require("dotenv").config();
+
+//init table
+db.serialize(function () {
+    db.run(
+        "CREATE TABLE if not exists artists ( id TEXT, name TEXT, genres TEXT, img TEXT , pop INTEGER , related TEXT)",
+        (err) => {
+            console.log(err);
+        }
+    );
+});
 
 const server = require("http").createServer();
 const io = require("socket.io")(server);
@@ -107,28 +123,58 @@ function setAuthToken(error, response, body, callback) {
 
 function getArtistGenres(from, toId, socket, relatedCache) {
     return function () {
-        var options = {
-            url: `https://api.spotify.com/v1/artists/${toId}`,
-            headers: {
-                Authorization: "Bearer " + authtoken,
-            },
-            json: true,
-        };
-        request.get(options, function (error, response, body) {
-            getRelatedArtists(
-                0,
-                from,
-                toId,
-                from,
-                body.genres,
-                socket,
-                relatedCache,
-                from,
-                0
-            );
+        getArtistFromDB(toId, function (row) {
+            if (row) {
+                console.log(row);
+                const genre = row.genres ? row.genres.split(",") : [];
+                getRelatedArtists(
+                    0,
+                    from,
+                    toId,
+                    from,
+                    genre,
+                    socket,
+                    relatedCache,
+                    from,
+                    0
+                );
+            } else {
+                var options = {
+                    url: `https://api.spotify.com/v1/artists/${toId}`,
+                    headers: {
+                        Authorization: "Bearer " + authtoken,
+                    },
+                    json: true,
+                };
+                request.get(options, function (error, response, body) {
+                    // some artists don't have an image
+                    const img = body.images ? body.images[0].url : "";
+
+                    insertArtistIntoDB(
+                        body.id,
+                        body.name,
+                        body.genres.join(),
+                        img,
+                        body.popularity
+                    );
+                    getRelatedArtists(
+                        0,
+                        from,
+                        toId,
+                        from,
+                        body.genres,
+                        socket,
+                        relatedCache,
+                        from,
+                        0
+                    );
+                });
+            }
         });
     };
 }
+
+function genresCallback(artist) {}
 
 function getGenreMatchScore(targetGenre, compareGenre) {
     let matchScore = 0;
@@ -159,94 +205,189 @@ function getRelatedArtists(
     if (index % 15 == 0) {
         getArtistFullDetails(artistId, socket);
     }
-    //console.log("Trying : " + artistId + " Depth : " + depth);
-    var options = {
-        url: `https://api.spotify.com/v1/artists/${artistId}/related-artists`,
-        headers: {
-            Authorization: "Bearer " + authtoken,
-        },
-        json: true,
-    };
-    request.get(options, function (error, response, body) {
-        if (body.error) {
-            const tryAfter = response.headers['retry-after'];
-		console.log(`got try after , waiting ${tryAfter} sec`);
-	    setTimeout(() => {getRelatedArtists(
-		        depth,
-		        artistId,
-		        toId,
-		        from,
-		        toGenres,
-		        socket,
-		        relatedCache,
-		        ogFrom,
-		        index
-	    )} , tryAfter * 1000);
-        } else {
-            for (let i = 0; i < body.artists.length; i++) {
-                if (
-                    !relatedCache
-                        .map((artist) => artist.id)
-                        .includes(body.artists[i].id)
-                ) {
-                    relatedCache.push({
-                        id: body.artists[i].id,
-                        from: from,
-                        depth:
-                            depth +
-                            1 -
-                            getGenreMatchScore(
-                                toGenres,
-                                body.artists[i].genres
-                            ),
-                    });
-                }
-            }
-        //TODO : per-sort the array
-        var curLowestArtist = getLowestPathArtist(relatedCache);
-        if (curLowestArtist == "NA") {
-            return;
-        }
-        const inPath = relatedCache.map((artist) => artist.id).includes(toId);
-        if (!inPath) {
-            let curDep;
+    //checks to see if artist in cache already
+    getArtistFromDB(artistId, function (row) {
+        //if the artist has related already
+        const related = row.related;
 
-            //man idk its like 11:30 PM i just wanna be happy again this works because the asyncines in js sucks and i cant figure it out dammit , its good enogh for now
-            //this gets the lowest path depth
-            relatedCache.forEach(async (artist) => {
-                if (artist.id == curLowestArtist) {
-                    curDep = artist.depth;
+        if (related) {
+            getArtistsFromDB(related, function (row) {
+                for (let i = 0; i < row.length; i++) {
+                    if (
+                        !relatedCache
+                            .map((artist) => artist.id)
+                            .includes(row[i].id)
+                    ) {
+                        relatedCache.push({
+                            id: row[i].id,
+                            from: from,
+                            depth:
+                                depth +
+                                1 -
+                                getGenreMatchScore(
+                                    toGenres,
+                                    row[i].genres.split(",")
+                                ),
+                        });
+                    }
+                }
+                // TODO : MAKE FUNCTION
+                let curLowestArtist = getLowestPathArtist(relatedCache, socket);
+                if (curLowestArtist == "NA") {
+                    return;
+                }
+                const inPath = relatedCache
+                    .map((artist) => artist.id)
+                    .includes(toId);
+                if (!inPath) {
+                    let curDep;
+
+                    //this gets the lowest path depth
+                    relatedCache.forEach((artist) => {
+                        if (artist.id == curLowestArtist) {
+                            curDep = artist.depth;
+                        }
+                    });
+
+                    getRelatedArtists(
+                        curDep,
+                        curLowestArtist,
+                        toId,
+                        curLowestArtist,
+                        toGenres,
+                        socket,
+                        relatedCache,
+                        ogFrom,
+                        index + 1
+                    );
+                } else {
+                    console.log("FOUND EM BOI , it's : " + toId);
+                    //finalStackTrace is the finale path to the artist
+                    let finalStackTrace = [ogFrom];
+                    getArtistBackTrack(
+                        ogFrom,
+                        toId,
+                        relatedCache,
+                        finalStackTrace
+                    );
+                    getFullArtists(finalStackTrace, socket);
+                    return;
                 }
             });
-
-            getRelatedArtists(
-                curDep,
-                curLowestArtist,
-                toId,
-                curLowestArtist,
-                toGenres,
-                socket,
-                relatedCache,
-                ogFrom,
-                index + 1
-            );
         } else {
-            console.log("FOUND EM BOI , it's : " + toId);
-            //finalStackTrace is the finale path to the artist
-            let finalStackTrace = [ogFrom];
-            getArtistBackTrack(ogFrom, toId, relatedCache, finalStackTrace);
-            getFullArtists(finalStackTrace, socket);
-            return;
+            //console.log("UNFAMILIAR ARTIST ID : " + artistId);
+            var options = {
+                url: `https://api.spotify.com/v1/artists/${artistId}/related-artists`,
+                headers: {
+                    Authorization: "Bearer " + authtoken,
+                },
+                json: true,
+            };
+            request.get(options, function (error, response, body) {
+                if (body.error) {
+                    const tryAfter = response.headers["retry-after"];
+                    console.log(`got try after , waiting ${tryAfter} sec`);
+                    setTimeout(() => {
+                        getRelatedArtists(
+                            depth,
+                            artistId,
+                            toId,
+                            from,
+                            toGenres,
+                            socket,
+                            relatedCache,
+                            ogFrom,
+                            index
+                        );
+                    }, tryAfter * 1000);
+                } else {
+                    const idMap = body.artists.map((artist) => artist.id);
+                    updateRelated(artistId, idMap.join());
+                    for (let i = 0; i < body.artists.length; i++) {
+                        const artist = body.artists[i];
+                        const img = artist.images ? artist.images[0] : "";
+                        insertArtistIntoDB(
+                            artist.id,
+                            artist.name,
+                            artist.genres.join(),
+                            img,
+                            artist.popularity
+                        );
+                        if (
+                            !relatedCache
+                                .map((artist) => artist.id)
+                                .includes(body.artists[i].id)
+                        ) {
+                            relatedCache.push({
+                                id: body.artists[i].id,
+                                from: from,
+                                depth:
+                                    depth +
+                                    1 -
+                                    getGenreMatchScore(
+                                        toGenres,
+                                        body.artists[i].genres
+                                    ),
+                            });
+                        }
+                    }
+                    //TODO : per-sort the array
+                    let curLowestArtist = getLowestPathArtist(
+                        relatedCache,
+                        socket
+                    );
+                    if (curLowestArtist == "NA") {
+                        return;
+                    }
+                    const inPath = relatedCache
+                        .map((artist) => artist.id)
+                        .includes(toId);
+                    if (!inPath) {
+                        let curDep;
+
+                        //this gets the lowest path depth
+                        relatedCache.forEach((artist) => {
+                            if (artist.id == curLowestArtist) {
+                                curDep = artist.depth;
+                            }
+                        });
+
+                        getRelatedArtists(
+                            curDep,
+                            curLowestArtist,
+                            toId,
+                            curLowestArtist,
+                            toGenres,
+                            socket,
+                            relatedCache,
+                            ogFrom,
+                            index + 1
+                        );
+                    } else {
+                        console.log("FOUND EM BOI , it's : " + toId);
+                        //finalStackTrace is the finale path to the artist
+                        let finalStackTrace = [ogFrom];
+                        getArtistBackTrack(
+                            ogFrom,
+                            toId,
+                            relatedCache,
+                            finalStackTrace
+                        );
+                        getFullArtists(finalStackTrace, socket);
+                        return;
+                    }
+                }
+            });
         }
-	}
     });
 }
 
 //this function gets the artist with the lowest depth score
-function getLowestPathArtist(relatedCache) {
+function getLowestPathArtist(relatedCache, socket) {
     let lowestId;
     //if path is larger than 4 give up (20^4 is alot(blaze it))
     let lowestVal = 4;
+
     relatedCache.forEach((artist) => {
         if (artist.depth < lowestVal) {
             lowestVal = artist.depth;
@@ -334,6 +475,66 @@ function checkDone(len, i, arr, socket) {
 }
 //call get path algrithm
 //getArtsitsPath(fromArtist, toArtist);
+
+//DB FUNCTIONS
+function getArtistFromDB(artistId, callback) {
+    db.get("SELECT * FROM artists WHERE id = ?", [artistId], (err, row) => {
+        if (err) {
+            console.log(err);
+        }
+        if (!row) {
+            row = {};
+        }
+        callback(row);
+    });
+}
+
+function insertArtistIntoDB(id, name, genres, img, pop) {
+    db.get("SELECT id FROM artists WHERE id = ?", [id], (err, row) => {
+        if (!row) {
+            db.run(
+                "INSERT INTO artists(id, name, genres, img, pop) VALUES (? ,? , ? ,? ,?)",
+                [id, name, genres, img, pop],
+                (err, row) => {
+                    if (err) {
+                        console.log(err);
+                    }
+                    //console.log("inserted new artist");
+                }
+            );
+        }
+    });
+}
+
+function updateRelated(artistId, related) {
+    db.run(
+        "UPDATE artists SET related = ? WHERE id = ?",
+        [related, artistId],
+        (err) => {
+            if (err) {
+                console.log(err);
+            }
+            //console.log("updated related");
+        }
+    );
+}
+
+function getArtistsFromDB(relatedIds, callback) {
+    const relatedArr = relatedIds.split(",");
+    let query = "SELECT * FROM artists WHERE";
+    for (let i = 0; i < relatedArr.length; i++) {
+        query += " id = ?";
+        if (i != relatedArr.length - 1) {
+            query += " OR ";
+        }
+    }
+    db.all(query, relatedArr, (err, row) => {
+        if (err) {
+            console.log(err);
+        }
+        callback(row);
+    });
+}
 
 //added auto authorize when the token is expired
 setTimeout(() => {
