@@ -251,7 +251,7 @@ function getRelatedArtists(
             request.get(options, function (error, response, body) {
                 if (body.error) {
                     const tryAfter = response.headers["retry-after"];
-                    console.log(`got try after , waiting ${tryAfter} sec`);
+                    //console.log(`got try after , waiting ${tryAfter} sec`);
                     setTimeout(() => {
                         getRelatedArtists(
                             depth,
@@ -347,7 +347,7 @@ function continueFullArtists(
             index + 1
         );
     } else {
-        console.log("FOUND EM BOI , it's : " + toId);
+        //console.log("FOUND EM BOI , it's : " + toId);
         //finalStackTrace is the finale path to the artist
         let finalStackTrace = [ogFrom];
         getArtistBackTrack(ogFrom, toId, relatedCache, finalStackTrace);
@@ -409,7 +409,7 @@ function getArtistBackTrack(toId, fromId, relatedCache, finalStackTrace) {
 
 //print get the full stack of artists
 function getFullArtists(arr, socket) {
-    console.log(arr);
+    //console.log(arr);
     let arr2 = [];
     let index = 0;
 
