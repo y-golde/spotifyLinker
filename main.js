@@ -125,7 +125,6 @@ function getArtistGenres(from, toId, socket, relatedCache) {
     return function () {
         getArtistFromDB(toId, function (row) {
             if (row) {
-                console.log(row);
                 const genre = row.genres ? row.genres.split(",") : [];
                 getRelatedArtists(
                     0,
@@ -202,7 +201,7 @@ function getRelatedArtists(
     index
 ) {
     disableArtist(artistId, relatedCache);
-    if (index % 15 == 0) {
+    if (index % 25 == 0) {
         getArtistFullDetails(artistId, socket);
     }
     //checks to see if artist in cache already
@@ -410,20 +409,39 @@ function getArtistBackTrack(toId, fromId, relatedCache, finalStackTrace) {
 
 //print get the full stack of artists
 function getFullArtists(arr, socket) {
+    console.log(arr);
     let arr2 = [];
     let index = 0;
+
     arr.forEach((artist, i) => {
-        var options = {
-            url: `https://api.spotify.com/v1/artists/${artist}`,
-            headers: {
-                Authorization: "Bearer " + authtoken,
-            },
-            json: true,
-        };
-        request.get(options, function (error, response, body) {
-            index++;
-            arr2[i] = { name: body.name, genres: body.genres, id: body.id };
-            checkDone(arr.length, index, arr2, socket);
+        getArtistFromDB(artist, (row) => {
+            if (!row.name) {
+                var options = {
+                    url: `https://api.spotify.com/v1/artists/${artist}`,
+                    headers: {
+                        Authorization: "Bearer " + authtoken,
+                    },
+                    json: true,
+                };
+                request.get(options, function (error, response, body) {
+                    index++;
+                    arr2[i] = {
+                        name: body.name,
+                        genres: body.genres,
+                        id: body.id,
+                    };
+                    checkDone(arr.length, index, arr2, socket);
+                });
+            } else {
+                index++;
+                const genres = row.genres ? row.genres.split(",") : [];
+                arr2[i] = {
+                    name: row.name,
+                    genres: genres,
+                    id: row.id,
+                };
+                checkDone(arr.length, index, arr2, socket);
+            }
         });
     });
 }
