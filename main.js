@@ -231,48 +231,14 @@ function getRelatedArtists(
                         });
                     }
                 }
-                // TODO : MAKE FUNCTION
-                let curLowestArtist = getLowestPathArtist(relatedCache, socket);
-                if (curLowestArtist == "NA") {
-                    return;
-                }
-                const inPath = relatedCache
-                    .map((artist) => artist.id)
-                    .includes(toId);
-                if (!inPath) {
-                    let curDep;
-
-                    //this gets the lowest path depth
-                    relatedCache.forEach((artist) => {
-                        if (artist.id == curLowestArtist) {
-                            curDep = artist.depth;
-                        }
-                    });
-
-                    getRelatedArtists(
-                        curDep,
-                        curLowestArtist,
-                        toId,
-                        curLowestArtist,
-                        toGenres,
-                        socket,
-                        relatedCache,
-                        ogFrom,
-                        index + 1
-                    );
-                } else {
-                    console.log("FOUND EM BOI , it's : " + toId);
-                    //finalStackTrace is the finale path to the artist
-                    let finalStackTrace = [ogFrom];
-                    getArtistBackTrack(
-                        ogFrom,
-                        toId,
-                        relatedCache,
-                        finalStackTrace
-                    );
-                    getFullArtists(finalStackTrace, socket);
-                    return;
-                }
+                continueFullArtists(
+                    relatedCache,
+                    toId,
+                    toGenres,
+                    socket,
+                    ogFrom,
+                    index
+                );
             });
         } else {
             //console.log("UNFAMILIAR ARTIST ID : " + artistId);
@@ -331,55 +297,64 @@ function getRelatedArtists(
                             });
                         }
                     }
-                    //TODO : per-sort the array
-                    let curLowestArtist = getLowestPathArtist(
+                    continueFullArtists(
                         relatedCache,
-                        socket
+                        toId,
+                        toGenres,
+                        socket,
+                        ogFrom,
+                        index
                     );
-                    if (curLowestArtist == "NA") {
-                        return;
-                    }
-                    const inPath = relatedCache
-                        .map((artist) => artist.id)
-                        .includes(toId);
-                    if (!inPath) {
-                        let curDep;
-
-                        //this gets the lowest path depth
-                        relatedCache.forEach((artist) => {
-                            if (artist.id == curLowestArtist) {
-                                curDep = artist.depth;
-                            }
-                        });
-
-                        getRelatedArtists(
-                            curDep,
-                            curLowestArtist,
-                            toId,
-                            curLowestArtist,
-                            toGenres,
-                            socket,
-                            relatedCache,
-                            ogFrom,
-                            index + 1
-                        );
-                    } else {
-                        console.log("FOUND EM BOI , it's : " + toId);
-                        //finalStackTrace is the finale path to the artist
-                        let finalStackTrace = [ogFrom];
-                        getArtistBackTrack(
-                            ogFrom,
-                            toId,
-                            relatedCache,
-                            finalStackTrace
-                        );
-                        getFullArtists(finalStackTrace, socket);
-                        return;
-                    }
                 }
             });
         }
     });
+}
+
+//TODO : find better name
+function continueFullArtists(
+    relatedCache,
+    toId,
+    toGenres,
+    socket,
+    ogFrom,
+    index
+) {
+    //TODO : per-sort the array
+    let curLowestArtist = getLowestPathArtist(relatedCache, socket);
+    if (curLowestArtist == "NA") {
+        return;
+    }
+    const inPath = relatedCache.map((artist) => artist.id).includes(toId);
+    if (!inPath) {
+        let curDep;
+
+        //this gets the lowest path depth
+        relatedCache.forEach((artist) => {
+            if (artist.id == curLowestArtist) {
+                curDep = artist.depth;
+            }
+        });
+
+        getRelatedArtists(
+            curDep,
+            curLowestArtist,
+            toId,
+            curLowestArtist,
+            toGenres,
+            socket,
+            relatedCache,
+            ogFrom,
+            index + 1
+        );
+    } else {
+        console.log("FOUND EM BOI , it's : " + toId);
+        //finalStackTrace is the finale path to the artist
+        let finalStackTrace = [ogFrom];
+        getArtistBackTrack(ogFrom, toId, relatedCache, finalStackTrace);
+        getFullArtists(finalStackTrace, socket);
+        return;
+    }
 }
 
 //this function gets the artist with the lowest depth score
@@ -454,16 +429,9 @@ function getFullArtists(arr, socket) {
 }
 
 function getArtistFullDetails(artistId, socket) {
-    var options = {
-        url: `https://api.spotify.com/v1/artists/${artistId}`,
-        headers: {
-            Authorization: "Bearer " + authtoken,
-        },
-        json: true,
-    };
-    request.get(options, function (error, response, body) {
-        const images = body.images ? body.images[0] : {};
-        socket.emit("currentlyLoading", body.name, images);
+    getArtistFromDB(artistId, function (row) {
+        const images = row.images ? body.images[0] : {};
+        socket.emit("currentlyLoading", row.name, images);
     });
 }
 
