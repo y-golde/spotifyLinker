@@ -135,6 +135,7 @@ function getArtistGenres(from, toId, socket, relatedCache) {
                     socket,
                     relatedCache,
                     from,
+                    0,
                     0
                 );
             } else {
@@ -165,6 +166,7 @@ function getArtistGenres(from, toId, socket, relatedCache) {
                         socket,
                         relatedCache,
                         from,
+                        0,
                         0
                     );
                 });
@@ -198,11 +200,12 @@ function getRelatedArtists(
     socket,
     relatedCache,
     ogFrom,
-    index
+    cached,
+    nonCached
 ) {
     disableArtist(artistId, relatedCache);
-    if (index % 25 == 0) {
-        getArtistFullDetails(artistId, socket, depth);
+    if ((cached + nonCached) % 25 == 0) {
+        getArtistFullDetails(artistId, socket, depth, cached, nonCached);
     }
     //checks to see if artist in cache already
     getArtistFromDB(artistId, function (row) {
@@ -210,6 +213,7 @@ function getRelatedArtists(
         const related = row.related;
 
         if (related) {
+            cached++;
             getArtistsFromDB(related, function (row) {
                 for (let i = 0; i < row.length; i++) {
                     if (
@@ -236,10 +240,12 @@ function getRelatedArtists(
                     toGenres,
                     socket,
                     ogFrom,
-                    index
+                    cached,
+                    nonCached
                 );
             });
         } else {
+            nonCached++;
             //console.log("UNFAMILIAR ARTIST ID : " + artistId);
             var options = {
                 url: `https://api.spotify.com/v1/artists/${artistId}/related-artists`,
@@ -262,7 +268,8 @@ function getRelatedArtists(
                             socket,
                             relatedCache,
                             ogFrom,
-                            index
+                            cached,
+                            nonCached
                         );
                     }, tryAfter * 1000);
                 } else {
@@ -307,7 +314,8 @@ function getRelatedArtists(
                         toGenres,
                         socket,
                         ogFrom,
-                        index
+                        cached,
+                        nonCached
                     );
                 }
             });
@@ -322,7 +330,8 @@ function continueFullArtists(
     toGenres,
     socket,
     ogFrom,
-    index
+    cached,
+    nonCached
 ) {
     //TODO : per-sort the array
     let curLowestArtist = getLowestPathArtist(relatedCache, socket);
@@ -349,7 +358,8 @@ function continueFullArtists(
             socket,
             relatedCache,
             ogFrom,
-            index + 1
+            cached,
+            nonCached
         );
     } else {
         //console.log("FOUND EM BOI , it's : " + toId);
@@ -365,7 +375,7 @@ function continueFullArtists(
 function getLowestPathArtist(relatedCache, socket) {
     let lowestId;
     //if path is larger than 6 give up (20^6 is alot)
-    let lowestVal = 6;
+    let lowestVal = 5;
 
     relatedCache.forEach((artist) => {
         if (artist.depth < lowestVal) {
@@ -451,10 +461,17 @@ function getFullArtists(arr, socket) {
     });
 }
 
-function getArtistFullDetails(artistId, socket, depth) {
+function getArtistFullDetails(artistId, socket, depth, cached, nonCached) {
     getArtistFromDB(artistId, function (row) {
         const images = row.img ? row.img : {};
-        socket.emit("currentlyLoading", row.name, images, depth);
+        socket.emit(
+            "currentlyLoading",
+            row.name,
+            images,
+            depth,
+            cached,
+            nonCached
+        );
     });
 }
 
