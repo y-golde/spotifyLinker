@@ -21,8 +21,10 @@ db.serialize(function () {
 const server = require("http").createServer();
 const io = require("socket.io")(server);
 io.on("connection", (socket) => {
+    //console.log('user connected');
     socket.on("search", (data, direction) => {
-        searchArtist(data, socket, direction);
+            //console.log('requested search');
+	    searchArtist(data, socket, direction);
     });
     socket.on("getLink", (data) => {
         getArtsitsPath(data.from, data.to, socket);
@@ -63,11 +65,10 @@ function getArtsitsPath(fromId, toId, socket) {
 }
 
 function searchArtist(text, socket, direction) {
-    if (authtoken == "") {
-        authorize(search(text, socket, direction));
-    } else {
+    if(text != "") {
         search("?q=" + text + "&type=artist&limit=5", socket, direction)();
     }
+    //search("?q=" + text + "&type=artist&limit=5", socket, direction)();
 }
 
 function search(q, socket, direction) {
@@ -80,7 +81,7 @@ function search(q, socket, direction) {
             json: true,
         };
         request.get(options, function (error, response, body) {
-            if (!error && response.statusCode === 200) {
+            if (response.statusCode === 200) {
                 const artists = body.artists.items.map((artist) => {
                     const newArtist = {};
                     if (artist.images[0]) {
@@ -95,7 +96,9 @@ function search(q, socket, direction) {
                     return newArtist;
                 });
                 socket.emit("searchResult" + direction, artists);
-            } else {
+            } else{
+		console.log(body);
+		authorize(search(q, socket, direction));
             }
         });
     };
@@ -111,7 +114,8 @@ function authorize(callback) {
 function setAuthToken(error, response, body, callback) {
     if (!error && response.statusCode === 200) {
         // use the access token to access the Spotify Web API
-        authtoken = body.access_token;
+        //console.log(body);
+	authtoken = body.access_token;
         console.log("authorized");
         if (callback) {
             callback();
@@ -547,4 +551,4 @@ function getArtistsFromDB(relatedIds, callback) {
 //added auto authorize when the token is expired
 setTimeout(() => {
     authorize();
-}, 36000);
+}, 3600000);
